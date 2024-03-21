@@ -5,6 +5,8 @@
 
 #include "DX12Helper.h"
 
+#include "RaytracingHelper.h"
+
 using namespace DirectX;
 
 // --------------------------------------------------------
@@ -30,7 +32,8 @@ Mesh::Mesh(Vertex* vertArray, size_t numVerts, unsigned int* indexArray, size_t 
 // device   - The D3D device to use for buffer creation
 // --------------------------------------------------------
 Mesh::Mesh(const std::wstring& objFile) :
-	numIndices(0)
+	numIndices(0),
+	numVertices(0)
 {
 	// File input object
 	std::ifstream obj(objFile);
@@ -225,6 +228,7 @@ void Mesh::CreateBuffers(Vertex* vertArray, size_t numVerts, unsigned int* index
 {
 	// Save the indices
 	this->numIndices = (unsigned int)numIndices;
+	this->numVertices = (unsigned int)numVerts;
 
 	// Calculate the tangents of each vertex first
 	CalculateTangents(vertArray, numVerts, indexArray, numIndices);
@@ -242,6 +246,8 @@ void Mesh::CreateBuffers(Vertex* vertArray, size_t numVerts, unsigned int* index
 	ibView.Format = DXGI_FORMAT_R32_UINT;
 	ibView.SizeInBytes = (UINT)(sizeof(unsigned int) * numIndices);
 	ibView.BufferLocation = ib->GetGPUVirtualAddress();
+
+	raytracingData = RaytracingHelper::GetInstance().CreateBottomLevelAccelerationStructureForMesh(this);
 }
 
 // --------------------------------------------------------
