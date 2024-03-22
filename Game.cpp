@@ -17,6 +17,8 @@
 // For the DirectX Math library
 using namespace DirectX;
 
+#define RandomRange(min, max) (float)rand() / RAND_MAX * (max - min) + min
+
 // --------------------------------------------------------
 // Constructor
 //
@@ -163,6 +165,8 @@ void Game::Init()
 	lights.push_back(directional4);
 
 	lightCount = 8;
+
+	commandList->Close();
 }
 
 // --------------------------------------------------------
@@ -242,7 +246,7 @@ void Game::CreateBasicGeometry()
 	cobblestone->FinalizeMaterial();
 
 	//Floor Material
-	std::shared_ptr<Material> floor = std::make_shared<Material>(pipelineState, XMFLOAT3(1, 1, 1), XMFLOAT2(1, 1), XMFLOAT2(0, 0));
+	std::shared_ptr<Material> floor = std::make_shared<Material>(pipelineState, XMFLOAT3(1, 1, 1));
 	floor->AddTexture(floorAlbedo, 0);
 	floor->AddTexture(floorNormal, 1);
 	floor->AddTexture(floorRoughness, 2);
@@ -281,23 +285,47 @@ void Game::CreateBasicGeometry()
 	wood->AddTexture(woodMetal, 3);
 	wood->FinalizeMaterial();
 
-	entityList.push_back(std::make_shared<GameEntity>(cubeMesh, bronze));
-	entityList.push_back(std::make_shared<GameEntity>(cylinderMesh, cobblestone));
-	entityList.push_back(std::make_shared<GameEntity>(helixMesh, floor));
-	entityList.push_back(std::make_shared<GameEntity>(quadMesh, rough));
-	entityList.push_back(std::make_shared<GameEntity>(quadDSMesh, paint));
-	entityList.push_back(std::make_shared<GameEntity>(sphereMesh, scratched));
-	entityList.push_back(std::make_shared<GameEntity>(torusMesh, wood));
+	// Floor Cube
+	std::shared_ptr<GameEntity> floorEntity = std::make_shared<GameEntity>(cubeMesh, std::make_shared<Material>(pipelineState, XMFLOAT3(0.2f,0.2f,0.2f)));
+	floorEntity->GetTransform()->SetScale(100);
+	floorEntity->GetTransform()->SetPosition(0, -103, 0);
+	entityList.push_back(floorEntity);
 
-	// Loops through each entity and sets it's position, then increments 
-	// the x position so they're each in different positions
-	float start = -10.5f;
+	// Torus
+	std::shared_ptr<GameEntity> torus = std::make_shared<GameEntity>(torusMesh, std::make_shared<Material>(pipelineState, XMFLOAT3(0.5f,0.2f,0.1f)));
+	torus->GetTransform()->SetScale(2);
+	torus->GetTransform()->SetPosition(0, 1, 0);
+	entityList.push_back(torus);
 
-	for (int i = 0; i < entityList.size(); i++)
-	{
-		entityList[i]->GetTransform()->SetPosition(start, 0.0f, 0.0f);
+	// Cylinder
+	std::shared_ptr<GameEntity> cylinder = std::make_shared<GameEntity>(cylinderMesh, std::make_shared<Material>(pipelineState, XMFLOAT3(0.1f,0.5f,0.2f)));
+	cylinder->GetTransform()->SetScale(1.5f);
+	cylinder->GetTransform()->SetPosition(3, 2, 6);
+	entityList.push_back(cylinder);
 
-		start += 3.0f;
+	// Helix
+	std::shared_ptr<GameEntity> helix = std::make_shared<GameEntity>(helixMesh, std::make_shared<Material>(pipelineState, XMFLOAT3(0.4f,0.5f,0.2f)));
+	helix->GetTransform()->SetScale(0.5f);
+	helix->GetTransform()->SetPosition(5, 3, 5);
+	entityList.push_back(helix);
+
+	// Spheres
+	for (int i = 0; i < 15; i++) {
+		std::shared_ptr<Material> randomMat = std::make_shared<Material>(pipelineState, XMFLOAT3(
+			RandomRange(0.0f, 1.0f),
+			RandomRange(0.0f, 1.0f),
+			RandomRange(0.0f, 1.0f)));
+
+		float scale = RandomRange(0.5f, 1.5f);
+
+		std::shared_ptr<GameEntity> entity = std::make_shared<GameEntity>(sphereMesh, randomMat);
+		entity->GetTransform()->SetScale(scale);
+		entity->GetTransform()->SetPosition(
+			RandomRange(-6, 6),
+			-2 + scale / 2.0f,
+			RandomRange(-6, 6));
+
+		entityList.push_back(entity);
 	}
 
 	RaytracingHelper::GetInstance().CreateTopLevelAccelerationStructureForScene(entityList);
@@ -513,9 +541,36 @@ void Game::Update(float deltaTime, float totalTime)
 	if (Input::GetInstance().KeyDown(VK_ESCAPE))
 		Quit();
 
-	for (int i = 0; i < entityList.size(); i++)
+	entityList[1]->GetTransform()->Rotate(
+		0.5f * deltaTime,
+		0.5f * deltaTime,
+		0.5f * deltaTime);
+
+	//for (int i = 2; i < entityList.size(); i++)
+	//{
+	//	XMFLOAT3 pos = entityList[i]->GetTransform()->GetPosition();
+
+	//	pos.x += deltaTime * RandomRange(-0.5f, 0.5f);
+	//	pos.z += deltaTime * RandomRange(-0.5f, 0.5f);
+
+	//	entityList[i]->GetTransform()->SetPosition(pos);
+	//}
+
+	for (int i = 2; i < entityList.size(); i++)
 	{
-		entityList[i]->GetTransform()->Rotate(0.0f, 0.25f * deltaTime, 0.0f);
+		XMFLOAT3 pos = entityList[i]->GetTransform()->GetPosition();
+
+		float dir = -1.0f;
+		if (i % 2 == 0) dir = 1.0f;
+
+		pos.x += dir * RandomRange(0.0f, 0.025f) * deltaTime;
+		pos.z += -dir * RandomRange(0.0f, 0.025f) * deltaTime;
+
+		entityList[i]->GetTransform()->SetPosition(pos);
+		entityList[i]->GetTransform()->Rotate(
+			0.25f * deltaTime,
+			0.25f * deltaTime,
+			0.25f * deltaTime);
 	}
 
 	camera->Update(deltaTime);
@@ -687,5 +742,7 @@ void Game::Draw(float deltaTime, float totalTime)
 		currentSwapBuffer++;
 		if (currentSwapBuffer >= numBackBuffers)
 			currentSwapBuffer = 0;
+
+		dx12Helper.WaitForGPU();
 	}
 }

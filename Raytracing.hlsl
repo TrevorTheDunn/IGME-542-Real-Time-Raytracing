@@ -180,7 +180,8 @@ void Miss(inout RayPayload payload)
 
 	// Interpolate based on the direction of the ray
 	float interpolation = dot(normalize(WorldRayDirection()), float3(0, 1, 0)) * 0.5f + 0.5f;
-	payload.color = lerp(downColor, upColor, interpolation);
+	//payload.color = lerp(downColor, upColor, interpolation);
+	payload.color = float3(0, 0, 0);
 }
 
 

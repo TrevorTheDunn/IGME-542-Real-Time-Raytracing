@@ -23,7 +23,7 @@ void Material::FinalizeMaterial()
 
 	DX12Helper& dx12Helper = DX12Helper::GetInstance();
 
-	for (int i = 0; i <= 4; i++)
+	for (int i = 0; i < 4; i++)
 	{
 		D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle =
 			dx12Helper.CopySRVsToDescriptorHeapAndGetGPUDescriptorHandle(textureSRVsBySlot[i], 1);
