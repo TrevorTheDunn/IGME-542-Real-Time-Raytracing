@@ -22,8 +22,8 @@ struct VertexToPixel
 	//  |    |                |
 	//  v    v                v
 	float4 screenPosition	: SV_POSITION;
-	float3 normal			: NORMAL;
 	float2 uv				: TEXCOORD;
+	float3 normal			: NORMAL;
 	float3 tangent			: TANGENT;
 	float3 worldPos			: POSITION;
 };
@@ -45,47 +45,90 @@ SamplerState BasicSampler		: register(s0);
 // --------------------------------------------------------
 float4 main(VertexToPixel input) : SV_TARGET
 {
+	//input.uv = input.uv * uvScale + uvOffset;
+
+	//float3 unpackedNormal = NormalMap.Sample(BasicSampler, input.uv).rgb * 2.0f - 1.0f;
+	//unpackedNormal = normalize(unpackedNormal);	//Don't forget to normalize
+
+	////Feel free to adjust/simplify this code to fit with your existing shader(s)
+	////Simplifications include not re-normalizing the same vector more than once!
+	//float3 N = normalize(input.normal); //Must be normalized here or before
+	//float3 T = normalize(input.tangent); //Must be normalized here or before
+	//T = normalize(T - N * dot(T, N)); //Gram-Schmidt assumes T&N are normalized
+	//float3 B = cross(T, N);
+	//float3x3 TBN = float3x3(T, B, N);
+
+	////Assumes that input.normal is the normal later in the shader
+	//input.normal = mul(unpackedNormal, TBN); //Note the multiplication order
+
+	//float3 albedoColor = pow(AlbedoTexture.Sample(BasicSampler, input.uv).rgb, 2.2f);
+
+	//float roughnessPBR = RoughnessMap.Sample(BasicSampler, input.uv).r;
+
+	//float metalness = MetalMap.Sample(BasicSampler, input.uv).r;
+
+	//float3 specularColor = lerp(F0_NON_METAL, albedoColor.rgb, metalness);
+
+	//float3 lightResult = float3(0.0f, 0.0f, 0.0f);
+
+	//for (int i = 0; i < lightCount; i++)
+	//{
+	//	switch (lights[i].Type)
+	//	{
+	//		case LIGHT_TYPE_DIRECTIONAL:
+	//			//lightResult += DirLight(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, roughness, specScale);
+	//			lightResult += DirLightPBR(lights[i], input.normal, cameraPosition, input.worldPos, albedoColor, specularColor, roughnessPBR, metalness);
+	//			break;
+
+	//		case LIGHT_TYPE_POINT:
+	//			//lightResult += PointLight(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, roughness, specScale);
+	//			lightResult += PointLightPBR(lights[i], input.normal, cameraPosition, input.worldPos, albedoColor, specularColor, roughnessPBR, metalness);
+	//			break;
+	//	}
+	//}
+
+	//return float4(pow(lightResult, 1.0f / 2.2f), 1);
+
+	input.normal = normalize(input.normal);
+	input.tangent = normalize(input.tangent);
+
 	input.uv = input.uv * uvScale + uvOffset;
 
-	float3 unpackedNormal = NormalMap.Sample(BasicSampler, input.uv).rgb * 2.0f - 1.0f;
-	unpackedNormal = normalize(unpackedNormal);	//Don't forget to normalize
+	float3 sampled = NormalMap.Sample(BasicSampler, input.uv).rgb * 2.0f - 1.0f;
 
-	//Feel free to adjust/simplify this code to fit with your existing shader(s)
-	//Simplifications include not re-normalizing the same vector more than once!
-	float3 N = normalize(input.normal); //Must be normalized here or before
-	float3 T = normalize(input.tangent); //Must be normalized here or before
-	T = normalize(T - N * dot(T, N)); //Gram-Schmidt assumes T&N are normalized
+	float3 N = input.normal;
+	float3 T = normalize(input.tangent - N * dot(input.tangent, N));
 	float3 B = cross(T, N);
+
 	float3x3 TBN = float3x3(T, B, N);
 
-	//Assumes that input.normal is the normal later in the shader
-	input.normal = mul(unpackedNormal, TBN); //Note the multiplication order
+	input.normal = normalize(mul(sampled, TBN));
 
-	float3 albedoColor = pow(AlbedoTexture.Sample(BasicSampler, input.uv).rgb, 2.2f);
+	float4 surfaceColor = AlbedoTexture.Sample(BasicSampler, input.uv);
+	surfaceColor.rgb = pow(surfaceColor.rgb, 2.2);
 
-	float roughnessPBR = RoughnessMap.Sample(BasicSampler, input.uv).r;
+	float roughness = RoughnessMap.Sample(BasicSampler, input.uv).r;
+	float metal = MetalMap.Sample(BasicSampler, input.uv).r;
 
-	float metalness = MetalMap.Sample(BasicSampler, input.uv).r;
+	float3 specColor = lerp(F0_NON_METAL.rrr, surfaceColor.rgb, metal);
 
-	float3 specularColor = lerp(F0_NON_METAL, albedoColor.rgb, metalness);
-
-	float3 lightResult = float3(0.0f, 0.0f, 0.0f);
+	float3 totalLight = float3(0, 0, 0);
 
 	for (int i = 0; i < lightCount; i++)
 	{
-		switch (lights[i].Type)
+		Light light = lights[i];
+		light.Direction = normalize(light.Direction);
+
+		switch (light.Type)
 		{
 			case LIGHT_TYPE_DIRECTIONAL:
-				//lightResult += DirLight(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, roughness, specScale);
-				lightResult += DirLightPBR(lights[i], input.normal, cameraPosition, input.worldPos, albedoColor, specularColor, roughnessPBR, metalness);
+				totalLight += DirLightPBR(light, input.normal, input.worldPos, cameraPosition, roughness, metal, surfaceColor.rgb, specColor);
 				break;
-
 			case LIGHT_TYPE_POINT:
-				//lightResult += PointLight(lights[i], input.normal, cameraPos, input.worldPosition, albedoColor, roughness, specScale);
-				lightResult += PointLightPBR(lights[i], input.normal, cameraPosition, input.worldPos, albedoColor, specularColor, roughnessPBR, metalness);
+				totalLight += PointLightPBR(light, input.normal, input.worldPos, cameraPosition, roughness, metal, surfaceColor.rgb, specColor);
 				break;
 		}
 	}
 
-	return float4(pow(lightResult, 1.0f / 2.2f), 1);
+	return float4(pow(totalLight, 1.0f / 2.2f), 1.0f);
 }

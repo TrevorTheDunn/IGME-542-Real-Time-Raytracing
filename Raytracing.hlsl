@@ -11,7 +11,7 @@ struct Vertex
 {
     float3 localPosition	: POSITION;
     float2 uv				: TEXCOORD;
-    float3 normal			: NORMAL;
+	float3 normal			: NORMAL;
     float3 tangent			: TANGENT;
 };
 static const uint VertexSizeInBytes = 11 * 4; // 11 floats total per vertex * 4 bytes each
@@ -37,7 +37,6 @@ cbuffer SceneData : register(b0)
 {
 	matrix inverseViewProjection;
 	float3 cameraPosition;
-	float pad0;
 };
 
 
@@ -202,11 +201,11 @@ void RayGen()
 	// Average all rays per pixel
 	float3 totalColor = float3(0, 0, 0);
 
-	int raysPerPixel = 10;
-	for (int x = 0; x < raysPerPixel; x++)
+	int raysPerPixel = 15;
+	for (int r = 0; r < raysPerPixel; r++)
 	{
 		float2 adjustedIndices = (float2)rayIndices;
-		adjustedIndices += rand2((float)x / raysPerPixel);
+		adjustedIndices += rand2((float)r / raysPerPixel);
 
 		// Calculate the ray data
 		float3 rayOrigin;
@@ -224,7 +223,7 @@ void RayGen()
 		RayPayload payload;
 		payload.color = float3(1, 1, 1);
 		payload.recursionDepth = 0;
-		payload.rayPerPixelIndex = x;
+		payload.rayPerPixelIndex = r;
 
 		// Perform the ray trace for this ray
 		TraceRay(

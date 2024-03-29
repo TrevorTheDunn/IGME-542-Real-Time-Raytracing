@@ -286,9 +286,9 @@ void Game::CreateBasicGeometry()
 	wood->FinalizeMaterial();
 
 	// Floor Cube
-	std::shared_ptr<GameEntity> floorEntity = std::make_shared<GameEntity>(cubeMesh, std::make_shared<Material>(pipelineState, XMFLOAT3(0.2f,0.2f,0.2f)));
+	std::shared_ptr<GameEntity> floorEntity = std::make_shared<GameEntity>(cubeMesh, std::make_shared<Material>(pipelineState, XMFLOAT3(0.2f,0.5f,0.2f)));
 	floorEntity->GetTransform()->SetScale(100);
-	floorEntity->GetTransform()->SetPosition(0, -103, 0);
+	floorEntity->GetTransform()->SetPosition(0, -102.5, 0);
 	entityList.push_back(floorEntity);
 
 	// Torus
@@ -364,14 +364,14 @@ void Game::CreateRootSigAndPipelineState()
 		inputElements[0].SemanticIndex = 0;					   // This is the first POSITION semantic
 
 		inputElements[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-		inputElements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT; // R32 G32 B32 = float3
-		inputElements[1].SemanticName = "NORMAL";
-		inputElements[1].SemanticIndex = 0;					   // This is the first NORMAL semantic
+		inputElements[1].Format = DXGI_FORMAT_R32G32_FLOAT;    // R32 G32 = float2
+		inputElements[1].SemanticName = "TEXCOORD";
+		inputElements[1].SemanticIndex = 0;					   // This is the first TEXCOORD semantic
 
 		inputElements[2].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-		inputElements[2].Format = DXGI_FORMAT_R32G32_FLOAT;    // R32 G32 = float2
-		inputElements[2].SemanticName = "TEXCOORD";
-		inputElements[2].SemanticIndex = 0;					   // This is the first TEXCOORD semantic
+		inputElements[2].Format = DXGI_FORMAT_R32G32B32_FLOAT; // R32 G32 B32 = float3
+		inputElements[2].SemanticName = "NORMAL";
+		inputElements[2].SemanticIndex = 0;					   // This is the first NORMAL semantic
 
 		inputElements[3].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 		inputElements[3].Format = DXGI_FORMAT_R32G32B32_FLOAT; // R32 G32 B32 = float3
@@ -550,28 +550,14 @@ void Game::Update(float deltaTime, float totalTime)
 	//{
 	//	XMFLOAT3 pos = entityList[i]->GetTransform()->GetPosition();
 
-	//	pos.x += deltaTime * RandomRange(-0.5f, 0.5f);
-	//	pos.z += deltaTime * RandomRange(-0.5f, 0.5f);
+	//	float dir = -1.0f;
+	//	if (i % 2 == 0) dir = 1.0f;
+
+	//	pos.x += dir * deltaTime;
+	//	pos.z += -dir * deltaTime;
 
 	//	entityList[i]->GetTransform()->SetPosition(pos);
 	//}
-
-	for (int i = 2; i < entityList.size(); i++)
-	{
-		XMFLOAT3 pos = entityList[i]->GetTransform()->GetPosition();
-
-		float dir = -1.0f;
-		if (i % 2 == 0) dir = 1.0f;
-
-		pos.x += dir * RandomRange(0.0f, 0.025f) * deltaTime;
-		pos.z += -dir * RandomRange(0.0f, 0.025f) * deltaTime;
-
-		entityList[i]->GetTransform()->SetPosition(pos);
-		entityList[i]->GetTransform()->Rotate(
-			0.25f * deltaTime,
-			0.25f * deltaTime,
-			0.25f * deltaTime);
-	}
 
 	camera->Update(deltaTime);
 }
