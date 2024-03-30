@@ -45,6 +45,7 @@ cbuffer SceneData : register(b0)
 cbuffer ObjectData : register(b1)
 {
 	float4 entityColor[MAX_INSTANCES_PER_BLAS];
+	int type;
 };
 
 
@@ -187,6 +188,27 @@ float3 rand3(float2 uv)
 		rand(uv.yx));
 }
 
+float FresnelSchlick(float NdotV, float indexOfRefraction)
+{
+	float r0 = pow((1.0f - indexOfRefraction) / (1.0f + indexOfRefraction), 2.0f);
+	return r0 + (1.0f - r0) + pow(1 - NdotV, 5.0f);
+}
+
+bool TryRefract(float3 incident, float3 normal, float ior, out float3 refr)
+{
+	float NdotI = dot(normal, incident);
+	float k = 1.0f - ior * ior * (1.0f - NdotI * NdotI);
+
+	if (k < 0.0f)
+	{
+		refr = float3(0, 0, 0);
+		return false;
+	}
+
+	refr = ior * incident - (ior * NdotI + sqrt(k)) * normal;
+	return true;
+}
+
 
 // === Shaders ===
 
@@ -205,7 +227,7 @@ void RayGen()
 	for (int r = 0; r < raysPerPixel; r++)
 	{
 		float2 adjustedIndices = (float2)rayIndices;
-		adjustedIndices += rand2((float)r / raysPerPixel);
+		adjustedIndices += rand((float)r / raysPerPixel);
 
 		// Calculate the ray data
 		float3 rayOrigin;
@@ -277,10 +299,35 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
 	float2 uv = (float2)DispatchRaysIndex() / (float2)DispatchRaysDimensions();
 	float2 rng = rand2(uv * (payload.recursionDepth + 1) + payload.rayPerPixelIndex + RayTCurrent());
 
-	// Interpolate between perfect reflection and random bounce based on roughness
-	float3 refl = reflect(WorldRayDirection(), normal_WS);
-	float3 randomBounce = RandomCosineWeightedHemisphere(rand(rng), rand(rng.yx), normal_WS);
-	float3 dir = normalize(lerp(refl, randomBounce, entityColor[InstanceID()].a));
+	float3 dir;
+	if (type == 1)
+	{
+		float ior = 1.5f;
+		if (HitKind() == HIT_KIND_TRIANGLE_FRONT_FACE)
+		{
+			ior = 1.0f / ior;
+		}
+		else
+		{
+			normal_WS *= -1;
+		}
+
+		float NdotV = dot(-WorldRayDirection(), normal_WS);
+		bool reflectFresnel = FresnelSchlick(NdotV, ior) < rand(rng);
+
+		if (reflectFresnel || !TryRefract(WorldRayDirection(), normal_WS, ior, dir))
+			dir = reflect(WorldRayDirection(), normal_WS);
+
+		float3 randomBounce = RandomCosineWeightedHemisphere(rand(rng), rand(rng.yx), normal_WS);
+		dir = normalize(lerp(dir, randomBounce, saturate(pow(entityColor[InstanceID()].a, 2))));
+	}
+	else
+	{
+		// Interpolate between perfect reflection and random bounce based on roughness
+		float3 refl = reflect(WorldRayDirection(), normal_WS);
+		float3 randomBounce = RandomCosineWeightedHemisphere(rand(rng), rand(rng.yx), normal_WS);
+		dir = normalize(lerp(refl, randomBounce, saturate(pow(entityColor[InstanceID()].a, 2))));
+	}
 
 	// Create the new recursive ray
 	RayDesc ray;

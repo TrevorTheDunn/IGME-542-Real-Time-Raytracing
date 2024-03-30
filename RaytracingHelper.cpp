@@ -677,6 +677,11 @@ void RaytracingHelper::CreateTopLevelAccelerationStructureForScene(std::vector<s
 		std::shared_ptr<Mesh> mesh = scene[i]->GetMesh();
 		unsigned int meshBlasIndex = mesh->GetRaytracingData().HitGroupIndex;
 
+		MaterialType type = scene[i]->GetMaterial()->GetType();
+		int typeNum = -1;
+		if (type == MaterialType::Normal) typeNum = 0;
+		if (type == MaterialType::Refractive) typeNum = 1;
+
 		// Create this description and add to our overall set of descriptions
 		D3D12_RAYTRACING_INSTANCE_DESC id = {};
 		id.InstanceContributionToHitGroupIndex = meshBlasIndex;
@@ -691,7 +696,9 @@ void RaytracingHelper::CreateTopLevelAccelerationStructureForScene(std::vector<s
 		// - mesh index tells us which cbuffer
 		// - instance ID tells us which instance in that cbuffer
 		XMFLOAT3 c = scene[i]->GetMaterial()->GetColorTint();
-		entityData[meshBlasIndex].color[id.InstanceID] = XMFLOAT4(c.x, c.y, c.z, (float)((i + 1) % 2)); // Using alpha channel as "roughness"
+		float r = scene[i]->GetMaterial()->GetRoughness();
+		entityData[meshBlasIndex].color[id.InstanceID] = XMFLOAT4(c.x, c.y, c.z, r); // Using alpha channel as "roughness"
+		entityData[meshBlasIndex].type = typeNum;
 
 		// On to the next instance for this mesh
 		instanceIDs[meshBlasIndex]++;
